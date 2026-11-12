@@ -5,10 +5,11 @@ import os
 import sqlite3
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +18,8 @@ from pydantic import BaseModel
 DEFAULT_INTERVAL_SECONDS = int(os.getenv("SCHEDULE_INTERVAL_SECONDS", str(3 * 60 * 60)))
 DEFAULT_SESSION_DURATION_SECONDS = int(os.getenv("SESSION_DURATION_SECONDS", str(4 * 60 * 60)))
 DEFAULT_START_TIME = os.getenv("SCHEDULE_START_TIME", "00:00")
+SCHEDULE_TIMEZONE = os.getenv("SCHEDULE_TIMEZONE", "Asia/Jakarta")
+LOCAL_TIMEZONE = ZoneInfo(SCHEDULE_TIMEZONE)
 DATA_DIR = Path(os.getenv("DATA_DIR", str(Path(__file__).parent / "data")))
 DB_PATH = DATA_DIR / "fattah.sqlite3"
 
@@ -187,7 +190,7 @@ class Scheduler:
             self.next_start = asyncio.get_running_loop().time() + interval_seconds
 
     def first_start_monotonic(self) -> float:
-        now = datetime.now().astimezone()
+        now = datetime.now(LOCAL_TIMEZONE)
         hour, minute = (int(part) for part in self.start_time.split(":", 1))
         target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
         if target > now:
