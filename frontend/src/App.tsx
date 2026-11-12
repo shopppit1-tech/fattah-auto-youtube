@@ -9,7 +9,6 @@ import './styles.css';
 const initialState: SchedulerState = {
   running: false,
   source: null,
-  startTime: '00:00',
   intervalSeconds: 10800,
   sessionDurationSeconds: 14400,
   activeSession: null,
@@ -49,7 +48,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
-  const [scheduleForm, setScheduleForm] = useState({ startTime: '00:00', intervalHours: '3', durationHours: '4' });
+  const [scheduleForm, setScheduleForm] = useState({ intervalHours: '3', durationHours: '4' });
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [activeNav, setActiveNav] = useState<'dashboard' | 'history'>('dashboard');
 
@@ -70,11 +69,10 @@ export default function App() {
 
   useEffect(() => {
     setScheduleForm({
-      startTime: state.startTime,
       intervalHours: (state.intervalSeconds / 3600).toString(),
       durationHours: (state.sessionDurationSeconds / 3600).toString(),
     });
-  }, [state.startTime, state.intervalSeconds, state.sessionDurationSeconds]);
+  }, [state.intervalSeconds, state.sessionDurationSeconds]);
 
   useEffect(() => {
     if (!state.running) return;
@@ -141,9 +139,9 @@ export default function App() {
       return;
     }
     try {
-      const nextState = await updateSchedule(scheduleForm.startTime, Math.round(intervalHours * 3600), Math.round(durationHours * 3600));
+      const nextState = await updateSchedule(Math.round(intervalHours * 3600), Math.round(durationHours * 3600));
       setState(nextState);
-      setNotice('Jadwal dan durasi berhasil diperbarui.');
+      setNotice('Interval dan durasi berhasil diperbarui. Sesi dimulai saat START ditekan.');
     } catch (scheduleError) {
       setError(scheduleError instanceof Error ? scheduleError.message : 'Jadwal tidak dapat diperbarui.');
     }
@@ -202,7 +200,7 @@ export default function App() {
 
               <div className="control-stack">
                 <div className="panel source-panel"><div className="panel-heading compact"><div><span className="panel-kicker">02 / SOURCE INPUT</span><h2>Tambahkan sumber</h2></div><Link2 size={17} /></div><form onSubmit={handleSourceSubmit}><label htmlFor="youtube-url">URL VIDEO / PLAYLIST YOUTUBE</label><div className="url-field"><Link2 size={15} /><input id="youtube-url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://youtube.com/..." /></div><button className="save-button" type="submit" disabled={saving}>{saving ? 'MENYIMPAN…' : 'SIMPAN SUMBER'}<span>↗</span></button></form>{error && <p className="form-message error">{error}</p>}{notice && <p className="form-message success">{notice}</p>}<p className="input-hint">Menerima tautan video tunggal maupun playlist. Playlist akan berlanjut otomatis.</p></div>
-                <div className="panel schedule-panel"><div className="panel-heading compact"><div><span className="panel-kicker">03 / SCHEDULE SETTINGS</span><h2>Atur jam &amp; durasi</h2></div><TimerReset size={17} /></div><form onSubmit={handleScheduleSubmit}><div className="schedule-fields schedule-fields-three"><label className="schedule-field" htmlFor="start-time"><span>JAM MULAI</span><div><input id="start-time" type="time" value={scheduleForm.startTime} onChange={(event) => setScheduleForm((current) => ({ ...current, startTime: event.target.value }))} /></div></label><label className="schedule-field" htmlFor="interval-hours"><span>ULANGI SETIAP</span><div><input id="interval-hours" type="number" min="0.25" step="0.25" value={scheduleForm.intervalHours} onChange={(event) => setScheduleForm((current) => ({ ...current, intervalHours: event.target.value }))} /><em>jam</em></div></label><label className="schedule-field" htmlFor="duration-hours"><span>DURASI SESI</span><div><input id="duration-hours" type="number" min="0.25" step="0.25" value={scheduleForm.durationHours} onChange={(event) => setScheduleForm((current) => ({ ...current, durationHours: event.target.value }))} /><em>jam</em></div></label></div><p className="schedule-hint">Start akan mengikuti jam mulai yang Anda pilih. Jika jamnya sudah lewat hari ini, sesi dimulai sekarang.</p><button className="save-button schedule-save" type="submit">SIMPAN JADWAL <span>↗</span></button></form></div>
+                <div className="panel schedule-panel"><div className="panel-heading compact"><div><span className="panel-kicker">03 / SCHEDULE SETTINGS</span><h2>Atur jam &amp; durasi</h2></div><TimerReset size={17} /></div><form onSubmit={handleScheduleSubmit}><div className="schedule-fields"><label className="schedule-field" htmlFor="interval-hours"><span>ULANGI SETIAP</span><div><input id="interval-hours" type="number" min="0.25" step="0.25" value={scheduleForm.intervalHours} onChange={(event) => setScheduleForm((current) => ({ ...current, intervalHours: event.target.value }))} /><em>jam</em></div></label><label className="schedule-field" htmlFor="duration-hours"><span>DURASI SESI</span><div><input id="duration-hours" type="number" min="0.25" step="0.25" value={scheduleForm.durationHours} onChange={(event) => setScheduleForm((current) => ({ ...current, durationHours: event.target.value }))} /><em>jam</em></div></label></div><p className="schedule-hint">Sesi pertama langsung dimulai saat tombol START ditekan, lalu diulang sesuai interval.</p><button className="save-button schedule-save" type="submit">SIMPAN JADWAL <span>↗</span></button></form></div>
                 <div className="panel action-panel"><div className="panel-heading compact"><div><span className="panel-kicker">04 / SYSTEM CONTROL</span><h2>Kontrol otomasi</h2></div><span className="mono-label">AUTO LOOP</span></div><div className="action-copy"><span className={state.running ? 'action-indicator active' : 'action-indicator'} /><div><strong>{state.running ? 'Jadwal sedang berjalan' : 'Sistem siap diaktifkan'}</strong><small>{state.running ? `Sesi berikutnya mengikuti interval ${formatClock(state.intervalSeconds)}.` : 'Start untuk memulai sesi pertama sekarang.'}</small></div></div><div className="action-buttons"><button className="start-button" onClick={handleStart} disabled={state.running || !state.source}><Play size={16} fill="currentColor" /> START</button><button className="stop-button" onClick={handleStop} disabled={!state.running}><Square size={14} fill="currentColor" /> STOP</button></div></div>
               </div>
             </section>

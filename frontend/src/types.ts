@@ -20,7 +20,6 @@ export interface PlaybackSession {
 export interface SchedulerState {
   running: boolean;
   source: YouTubeSource | null;
-  startTime: string;
   intervalSeconds: number;
   sessionDurationSeconds: number;
   activeSession: PlaybackSession | null;

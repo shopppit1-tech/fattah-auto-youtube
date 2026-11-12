@@ -35,10 +35,10 @@ export function saveSource(source: YouTubeSource): Promise<SchedulerState> {
   return request<SchedulerState>('/api/source', { method: 'PUT', body: JSON.stringify({ url: source.url }) });
 }
 
-export function updateSchedule(startTime: string, intervalSeconds: number, sessionDurationSeconds: number): Promise<SchedulerState> {
+export function updateSchedule(intervalSeconds: number, sessionDurationSeconds: number): Promise<SchedulerState> {
   return request<SchedulerState>('/api/schedule', {
     method: 'PUT',
-    body: JSON.stringify({ startTime, intervalSeconds, sessionDurationSeconds }),
+    body: JSON.stringify({ intervalSeconds, sessionDurationSeconds }),
   });
 }
 

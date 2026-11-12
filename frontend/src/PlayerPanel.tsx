@@ -21,6 +21,9 @@ function buildEmbedUrl(source: YouTubeSource, running: boolean) {
     return `https://www.youtube.com/embed?${params.toString()}`;
   }
 
+  // YouTube requires the video ID in `playlist` for loop=1 on a single video.
+  params.set('loop', '1');
+  params.set('playlist', source.id);
   return `https://www.youtube.com/embed/${source.id}?${params.toString()}`;
 }
 

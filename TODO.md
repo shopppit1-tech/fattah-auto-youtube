@@ -11,7 +11,8 @@
 - [x] Setiap sesi memiliki durasi 4 jam.
 - [x] Jadwal mengulang otomatis setelah otomasi diaktifkan.
 - [x] Pengguna dapat mengedit interval pengulangan dan durasi sesi dari dashboard; nilai disimpan di backend dan dipakai scheduler berikutnya.
-- [x] Pengguna dapat mengatur jam mulai sesi dengan input waktu HH:MM; Start mengikuti jam tersebut atau mulai segera bila jam hari itu sudah lewat.
+- [x] Sesi pertama langsung dimulai ketika pengguna menekan tombol Start; tidak ada pengaturan jam mulai terpisah.
+- [x] Video tunggal mengulang otomatis ketika durasi videonya selesai sampai sesi scheduler berakhir.
 - [x] Tombol Start mengaktifkan jadwal dan memulai alur pemutaran otomatis.
 - [x] Tombol Stop menghentikan jadwal dan sesi pemutaran yang sedang berjalan.
 
