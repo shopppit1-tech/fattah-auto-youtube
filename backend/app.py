@@ -14,8 +14,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-INTERVAL_SECONDS = int(os.getenv("SCHEDULE_INTERVAL_SECONDS", str(3 * 60 * 60)))
-SESSION_DURATION_SECONDS = int(os.getenv("SESSION_DURATION_SECONDS", str(4 * 60 * 60)))
+DEFAULT_INTERVAL_SECONDS = int(os.getenv("SCHEDULE_INTERVAL_SECONDS", str(3 * 60 * 60)))
+DEFAULT_SESSION_DURATION_SECONDS = int(os.getenv("SESSION_DURATION_SECONDS", str(4 * 60 * 60)))
 DATA_DIR = Path(os.getenv("DATA_DIR", str(Path(__file__).parent / "data")))
 DB_PATH = DATA_DIR / "fattah.sqlite3"
 
@@ -42,6 +42,11 @@ def parse_youtube_url(raw_url: str) -> dict[str, str]:
 
 class SourceRequest(BaseModel):
     url: str
+
+
+class ScheduleRequest(BaseModel):
+    intervalSeconds: int
+    sessionDurationSeconds: int
 
 
 class Store:
@@ -73,6 +78,19 @@ class Store:
     def set_source(self, source: dict[str, str]) -> None:
         self.connection.execute("INSERT OR REPLACE INTO settings(key, value) VALUES('source', ?)", (source["url"],))
         self.connection.commit()
+
+    def set_setting(self, key: str, value: int) -> None:
+        self.connection.execute("INSERT OR REPLACE INTO settings(key, value) VALUES(?, ?)", (key, str(value)))
+        self.connection.commit()
+
+    def int_setting(self, key: str, default: int) -> int:
+        row = self.connection.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        if not row:
+            return default
+        try:
+            return int(row["value"])
+        except (TypeError, ValueError):
+            return default
 
     def source(self) -> dict[str, str] | None:
         row = self.connection.execute("SELECT value FROM settings WHERE key = 'source'").fetchone()
@@ -138,6 +156,20 @@ class Scheduler:
         self.task: asyncio.Task[None] | None = None
         self.next_start: float | None = None
 
+    @property
+    def interval_seconds(self) -> int:
+        return self.store.int_setting("interval_seconds", DEFAULT_INTERVAL_SECONDS)
+
+    @property
+    def session_duration_seconds(self) -> int:
+        return self.store.int_setting("session_duration_seconds", DEFAULT_SESSION_DURATION_SECONDS)
+
+    def update_schedule(self, interval_seconds: int, session_duration_seconds: int) -> None:
+        self.store.set_setting("interval_seconds", interval_seconds)
+        self.store.set_setting("session_duration_seconds", session_duration_seconds)
+        if self.running:
+            self.next_start = asyncio.get_running_loop().time() + interval_seconds
+
     async def start(self) -> dict[str, Any]:
         if self.running:
             return state_payload(self)
@@ -146,7 +178,7 @@ class Scheduler:
             raise HTTPException(status_code=400, detail="Simpan sumber YouTube sebelum Start.")
         self.running = True
         self.store.create_session(source)
-        self.next_start = asyncio.get_running_loop().time() + INTERVAL_SECONDS
+        self.next_start = asyncio.get_running_loop().time() + self.interval_seconds
         if self.task is None or self.task.done():
             self.task = asyncio.create_task(self._loop())
         return state_payload(self)
@@ -172,12 +204,12 @@ class Scheduler:
                 source = self.store.source()
                 if source:
                     self.store.create_session(source)
-                self.next_start = current + INTERVAL_SECONDS
+                self.next_start = current + self.interval_seconds
             for session in self.store.active_sessions():
                 started = datetime.fromisoformat(session["startedAt"])
-                if (datetime.now(timezone.utc) - started).total_seconds() >= SESSION_DURATION_SECONDS:
+                if (datetime.now(timezone.utc) - started).total_seconds() >= self.session_duration_seconds:
                     self.store.finish(session["id"], "completed")
-            await asyncio.sleep(min(15, max(1, INTERVAL_SECONDS)))
+            await asyncio.sleep(min(15, max(1, self.interval_seconds)))
 
     def active_session(self) -> dict[str, Any] | None:
         active = self.store.active_sessions()
@@ -188,8 +220,8 @@ def state_payload(scheduler: Scheduler) -> dict[str, Any]:
     return {
         "running": scheduler.running,
         "source": scheduler.store.source(),
-        "intervalSeconds": INTERVAL_SECONDS,
-        "sessionDurationSeconds": SESSION_DURATION_SECONDS,
+        "intervalSeconds": scheduler.interval_seconds,
+        "sessionDurationSeconds": scheduler.session_duration_seconds,
         "activeSession": scheduler.active_session(),
         "history": scheduler.store.history(30),
     }
@@ -233,6 +265,16 @@ def set_source(payload: SourceRequest) -> dict[str, Any]:
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     store.set_source(source)
+    return state_payload(scheduler)
+
+
+@app.put("/api/schedule")
+def update_schedule(payload: ScheduleRequest) -> dict[str, Any]:
+    if not 60 <= payload.intervalSeconds <= 7 * 24 * 60 * 60:
+        raise HTTPException(status_code=422, detail="Interval harus antara 1 menit dan 7 hari.")
+    if not 60 <= payload.sessionDurationSeconds <= 7 * 24 * 60 * 60:
+        raise HTTPException(status_code=422, detail="Durasi harus antara 1 menit dan 7 hari.")
+    scheduler.update_schedule(payload.intervalSeconds, payload.sessionDurationSeconds)
     return state_payload(scheduler)
 
 

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Activity, Clock3, History, Link2, ListVideo, Play, Radio, Square, TimerReset, Zap } from 'lucide-react';
-import { getHistory, getState, saveSource, startScheduler, stopScheduler } from './api';
+import { getHistory, getState, saveSource, startScheduler, stopScheduler, updateSchedule } from './api';
 import { PlayerPanel } from './PlayerPanel';
 import { parseYouTubeUrl } from './youtube';
 import type { PlaybackSession, SchedulerState, YouTubeSource } from './types';
@@ -22,6 +22,12 @@ function formatDuration(seconds: number | null) {
   return hours ? `${hours}j ${minutes}m` : `${minutes}m`;
 }
 
+function formatClock(seconds: number) {
+  const hours = Math.floor(seconds / 3600).toString().padStart(2, '0');
+  const minutes = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
 function formatTime(value: string | null) {
   if (!value) return '—';
   return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
@@ -37,6 +43,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({ intervalHours: '3', durationHours: '4' });
   const [activeNav, setActiveNav] = useState<'dashboard' | 'history'>('dashboard');
 
   useEffect(() => {
@@ -44,6 +51,13 @@ export default function App() {
       setError(loadError instanceof Error ? loadError.message : 'Backend produksi tidak dapat dihubungi.');
     });
   }, []);
+
+  useEffect(() => {
+    setScheduleForm({
+      intervalHours: (state.intervalSeconds / 3600).toString(),
+      durationHours: (state.sessionDurationSeconds / 3600).toString(),
+    });
+  }, [state.intervalSeconds, state.sessionDurationSeconds]);
 
   useEffect(() => {
     if (!state.running) return;
@@ -99,6 +113,25 @@ export default function App() {
     }
   }
 
+  async function handleScheduleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError('');
+    setNotice('');
+    const intervalHours = Number(scheduleForm.intervalHours);
+    const durationHours = Number(scheduleForm.durationHours);
+    if (!Number.isFinite(intervalHours) || !Number.isFinite(durationHours) || intervalHours <= 0 || durationHours <= 0) {
+      setError('Interval dan durasi harus berupa angka lebih besar dari 0.');
+      return;
+    }
+    try {
+      const nextState = await updateSchedule(Math.round(intervalHours * 3600), Math.round(durationHours * 3600));
+      setState(nextState);
+      setNotice('Jadwal dan durasi berhasil diperbarui.');
+    } catch (scheduleError) {
+      setError(scheduleError instanceof Error ? scheduleError.message : 'Jadwal tidak dapat diperbarui.');
+    }
+  }
+
   return (
     <div className="app-shell">
       <aside className="side-rail">
@@ -127,8 +160,8 @@ export default function App() {
         </section>
 
         <section className="metric-strip" aria-label="Konfigurasi jadwal">
-          <div className="metric"><span className="metric-icon"><Clock3 size={16} /></span><div><small>INTERVAL JADWAL</small><strong>03:00 <i>JAM</i></strong></div></div>
-          <div className="metric"><span className="metric-icon"><TimerReset size={16} /></span><div><small>DURASI SESI</small><strong>04:00 <i>JAM</i></strong></div></div>
+          <div className="metric"><span className="metric-icon"><Clock3 size={16} /></span><div><small>INTERVAL JADWAL</small><strong>{formatClock(state.intervalSeconds)} <i>JAM</i></strong></div></div>
+          <div className="metric"><span className="metric-icon"><TimerReset size={16} /></span><div><small>DURASI SESI</small><strong>{formatClock(state.sessionDurationSeconds)} <i>JAM</i></strong></div></div>
           <div className="metric"><span className="metric-icon"><Radio size={16} /></span><div><small>MODE PEMUTARAN</small><strong>REPEATING <i>ON</i></strong></div></div>
           <div className={state.running ? 'system-state active' : 'system-state'}><span className="state-dot" /><div><small>SYSTEM STATUS</small><strong>{state.running ? 'RUNNING' : 'READY'}</strong></div></div>
         </section>
@@ -144,11 +177,12 @@ export default function App() {
 
               <div className="control-stack">
                 <div className="panel source-panel"><div className="panel-heading compact"><div><span className="panel-kicker">02 / SOURCE INPUT</span><h2>Tambahkan sumber</h2></div><Link2 size={17} /></div><form onSubmit={handleSourceSubmit}><label htmlFor="youtube-url">URL VIDEO / PLAYLIST YOUTUBE</label><div className="url-field"><Link2 size={15} /><input id="youtube-url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://youtube.com/..." /></div><button className="save-button" type="submit" disabled={saving}>{saving ? 'MENYIMPAN…' : 'SIMPAN SUMBER'}<span>↗</span></button></form>{error && <p className="form-message error">{error}</p>}{notice && <p className="form-message success">{notice}</p>}<p className="input-hint">Menerima tautan video tunggal maupun playlist. Playlist akan berlanjut otomatis.</p></div>
-                <div className="panel action-panel"><div className="panel-heading compact"><div><span className="panel-kicker">03 / SYSTEM CONTROL</span><h2>Kontrol otomasi</h2></div><span className="mono-label">AUTO LOOP</span></div><div className="action-copy"><span className={state.running ? 'action-indicator active' : 'action-indicator'} /><div><strong>{state.running ? 'Jadwal sedang berjalan' : 'Sistem siap diaktifkan'}</strong><small>{state.running ? 'Sesi akan berulang setiap 3 jam.' : 'Start untuk memulai sesi pertama sekarang.'}</small></div></div><div className="action-buttons"><button className="start-button" onClick={handleStart} disabled={state.running || !state.source}><Play size={16} fill="currentColor" /> START</button><button className="stop-button" onClick={handleStop} disabled={!state.running}><Square size={14} fill="currentColor" /> STOP</button></div></div>
+                <div className="panel schedule-panel"><div className="panel-heading compact"><div><span className="panel-kicker">03 / SCHEDULE SETTINGS</span><h2>Atur waktu</h2></div><TimerReset size={17} /></div><form onSubmit={handleScheduleSubmit}><div className="schedule-fields"><label className="schedule-field" htmlFor="interval-hours"><span>ULANGI SETIAP</span><div><input id="interval-hours" type="number" min="0.25" step="0.25" value={scheduleForm.intervalHours} onChange={(event) => setScheduleForm((current) => ({ ...current, intervalHours: event.target.value }))} /><em>jam</em></div></label><label className="schedule-field" htmlFor="duration-hours"><span>DURASI SESI</span><div><input id="duration-hours" type="number" min="0.25" step="0.25" value={scheduleForm.durationHours} onChange={(event) => setScheduleForm((current) => ({ ...current, durationHours: event.target.value }))} /><em>jam</em></div></label></div><button className="save-button schedule-save" type="submit">SIMPAN JADWAL <span>↗</span></button></form></div>
+                <div className="panel action-panel"><div className="panel-heading compact"><div><span className="panel-kicker">04 / SYSTEM CONTROL</span><h2>Kontrol otomasi</h2></div><span className="mono-label">AUTO LOOP</span></div><div className="action-copy"><span className={state.running ? 'action-indicator active' : 'action-indicator'} /><div><strong>{state.running ? 'Jadwal sedang berjalan' : 'Sistem siap diaktifkan'}</strong><small>{state.running ? `Sesi berikutnya mengikuti interval ${formatClock(state.intervalSeconds)}.` : 'Start untuk memulai sesi pertama sekarang.'}</small></div></div><div className="action-buttons"><button className="start-button" onClick={handleStart} disabled={state.running || !state.source}><Play size={16} fill="currentColor" /> START</button><button className="stop-button" onClick={handleStop} disabled={!state.running}><Square size={14} fill="currentColor" /> STOP</button></div></div>
               </div>
             </section>
 
-            <section className="history-section panel"><div className="section-heading"><div><span className="panel-kicker">04 / AUDIT TRAIL</span><h2>Riwayat pemutaran</h2></div><button className="text-button" onClick={() => setActiveNav('history')}>LIHAT SEMUA <span>↗</span></button></div><HistoryTable sessions={history} /></section>
+            <section className="history-section panel"><div className="section-heading"><div><span className="panel-kicker">05 / AUDIT TRAIL</span><h2>Riwayat pemutaran</h2></div><button className="text-button" onClick={() => setActiveNav('history')}>LIHAT SEMUA <span>↗</span></button></div><HistoryTable sessions={history} /></section>
           </>
         ) : (
           <section className="history-page panel"><div className="section-heading"><div><span className="panel-kicker">AUDIT TRAIL / FULL LOG</span><h2>Semua riwayat pemutaran</h2></div><span className="log-count">{state.history.length.toString().padStart(2, '0')} SESI</span></div><HistoryTable sessions={state.history} /></section>

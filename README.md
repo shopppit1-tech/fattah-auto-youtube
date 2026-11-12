@@ -21,7 +21,7 @@ pip install -r backend/requirements.txt
 uvicorn backend.app:app --reload --port 8000
 ```
 
-Untuk menghubungkan frontend ke backend, salin `.env.example` ke environment build frontend dan set `VITE_API_BASE_URL=http://localhost:8000`. Backend menyediakan `GET /api/health`, `GET /api/state`, `PUT /api/source`, `POST /api/start`, `POST /api/stop`, dan `GET /api/history`.
+Untuk menghubungkan frontend ke backend, salin `.env.example` ke environment build frontend dan set `VITE_API_BASE_URL=http://localhost:8000`. Backend menyediakan `GET /api/health`, `GET /api/state`, `PUT /api/source`, `PUT /api/schedule`, `POST /api/start`, `POST /api/stop`, dan `GET /api/history`. Interval pengulangan dan durasi sesi dapat diubah dari panel **Atur waktu** dalam satuan jam; nilainya tersimpan di SQLite backend.
 
 ## Perilaku scheduler
 
