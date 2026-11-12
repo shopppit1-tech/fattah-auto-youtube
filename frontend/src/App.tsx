@@ -40,7 +40,9 @@ export default function App() {
   const [activeNav, setActiveNav] = useState<'dashboard' | 'history'>('dashboard');
 
   useEffect(() => {
-    getState().then(setState);
+    getState().then(setState).catch((loadError) => {
+      setError(loadError instanceof Error ? loadError.message : 'Backend produksi tidak dapat dihubungi.');
+    });
   }, []);
 
   useEffect(() => {
@@ -88,9 +90,13 @@ export default function App() {
 
   async function handleStop() {
     setError('');
-    const nextState = await stopScheduler();
-    setState(nextState);
-    setNotice('Jadwal dihentikan. Riwayat sesi sudah diperbarui.');
+    try {
+      const nextState = await stopScheduler();
+      setState(nextState);
+      setNotice('Jadwal dihentikan. Riwayat sesi sudah diperbarui.');
+    } catch (stopError) {
+      setError(stopError instanceof Error ? stopError.message : 'Backend produksi tidak dapat dihubungi.');
+    }
   }
 
   return (

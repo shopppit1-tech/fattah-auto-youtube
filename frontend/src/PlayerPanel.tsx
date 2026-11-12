@@ -1,5 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
-import type { YouTubePlayer } from './youtube';
 import type { YouTubeSource } from './types';
 
 interface PlayerPanelProps {
@@ -7,68 +5,26 @@ interface PlayerPanelProps {
   running: boolean;
 }
 
+function buildEmbedUrl(source: YouTubeSource, running: boolean) {
+  const params = new URLSearchParams({
+    autoplay: running ? '1' : '0',
+    controls: '1',
+    rel: '0',
+    modestbranding: '1',
+    enablejsapi: '1',
+    origin: window.location.origin,
+  });
+
+  if (source.kind === 'playlist') {
+    params.set('listType', 'playlist');
+    params.set('list', source.id);
+    return `https://www.youtube.com/embed?${params.toString()}`;
+  }
+
+  return `https://www.youtube.com/embed/${source.id}?${params.toString()}`;
+}
+
 export function PlayerPanel({ source, running }: PlayerPanelProps) {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<YouTubePlayer | null>(null);
-  const [apiReady, setApiReady] = useState(Boolean(window.YT));
-
-  useEffect(() => {
-    if (window.YT) {
-      setApiReady(true);
-      return;
-    }
-    const existing = document.querySelector<HTMLScriptElement>('script[src="https://www.youtube.com/iframe_api"]');
-    const script = existing ?? document.createElement('script');
-    if (!existing) {
-      script.src = 'https://www.youtube.com/iframe_api';
-      script.async = true;
-      document.body.appendChild(script);
-    }
-    const previous = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      previous?.();
-      setApiReady(true);
-    };
-    return () => {
-      window.onYouTubeIframeAPIReady = previous;
-    };
-  }, []);
-
-  useEffect(() => {
-    playerRef.current?.destroy();
-    playerRef.current = null;
-    if (!source || !apiReady || !mountRef.current || !window.YT) return;
-
-    playerRef.current = new window.YT.Player(mountRef.current, {
-      width: '100%',
-      height: '100%',
-      videoId: source.kind === 'video' ? source.id : undefined,
-      playerVars: {
-        autoplay: running ? 1 : 0,
-        controls: 1,
-        rel: 0,
-        modestbranding: 1,
-        ...(source.kind === 'playlist' ? { listType: 'playlist', list: source.id } : {}),
-      },
-      events: {
-        onReady: (event: { target: YouTubePlayer }) => {
-          if (running) event.target.playVideo();
-        },
-      },
-    });
-
-    return () => {
-      playerRef.current?.destroy();
-      playerRef.current = null;
-    };
-  }, [source, apiReady]);
-
-  useEffect(() => {
-    if (!playerRef.current) return;
-    if (running) playerRef.current.playVideo();
-    else playerRef.current.pauseVideo();
-  }, [running]);
-
   if (!source) {
     return (
       <div className="player-empty">
@@ -79,5 +35,15 @@ export function PlayerPanel({ source, running }: PlayerPanelProps) {
     );
   }
 
-  return <div className="player-frame"><div ref={mountRef} className="youtube-mount" /></div>;
+  return (
+    <div className="player-frame">
+      <iframe
+        className="youtube-iframe"
+        title={source.title}
+        src={buildEmbedUrl(source, running)}
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+      />
+    </div>
+  );
 }

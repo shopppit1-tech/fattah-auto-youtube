@@ -10,7 +10,7 @@ npm install
 npm run dev
 ```
 
-Frontend berjalan di `http://localhost:3000`. Jika backend belum dijalankan, dashboard menggunakan mode demo lokal berbasis `localStorage`, sehingga alur input URL, Start, Stop, pemutar, dan riwayat tetap dapat dicoba.
+Frontend berjalan di `http://localhost:3000` dan wajib terhubung ke backend Python melalui `VITE_API_BASE_URL`. Tidak ada fallback demo atau `localStorage`; jika backend tidak tersedia, aplikasi menampilkan error koneksi.
 
 ## Menjalankan backend
 
