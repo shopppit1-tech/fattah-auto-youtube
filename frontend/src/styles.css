@@ -28,3 +28,9 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .schedule-field em { padding-right: 9px; color: var(--muted); font-style: normal; font-size: 9px; }
 .schedule-save { width: 100%; margin-top: 12px; }
 @media (max-width: 520px) { .schedule-fields { grid-template-columns: 1fr; } }
+
+.install-button { margin-left: 12px; border: 1px solid var(--lime); color: var(--lime); background: transparent; padding: 7px 10px; font: 9px 'IBM Plex Mono', monospace; letter-spacing: .08em; cursor: pointer; }
+.schedule-fields-three { grid-template-columns: 1fr 1fr 1fr; }
+.schedule-field input[type='time'] { color-scheme: dark; }
+.schedule-hint { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+@media (max-width: 700px) { .schedule-fields-three { grid-template-columns: 1fr; } .install-button { display: block; margin: 8px 0 0; } }

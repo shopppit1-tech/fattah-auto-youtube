@@ -1,0 +1,14 @@
+{
+  "name": "FATTAH AUTO YOUTUBE",
+  "short_name": "FATTAH AUTO",
+  "description": "Dashboard scheduler dan kontrol pemutaran FATTAH AUTO YOUTUBE.",
+  "start_url": "/fattah-auto-youtube/",
+  "scope": "/fattah-auto-youtube/",
+  "display": "standalone",
+  "background_color": "#0d1112",
+  "theme_color": "#0d1112",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/fattah-auto-youtube/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
